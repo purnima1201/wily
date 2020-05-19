@@ -1,13 +1,23 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, } from 'react-native';
+import {createAppContainer} from 'react-navigation';
+import {createBottomTabNavigator} from 'react-navigation-tabs';
+import SearchScreen from './screens/searchScreen';
+import BookTransaction from './screens/bookTransaction';
 
-export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-    </View>
-  );
+export default class App extends React.Component {
+  render(){
+    return(
+      <AppContainer></AppContainer>
+    )
+  }
 }
+
+const TabNavigator = createBottomTabNavigator({
+  Transaction: {screen: BookTransaction}, Search: {screen: SearchScreen}
+})
+
+const AppContainer = createAppContainer(TabNavigator)
 
 const styles = StyleSheet.create({
   container: {
