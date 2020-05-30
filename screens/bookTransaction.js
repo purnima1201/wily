@@ -2,6 +2,8 @@ import React from 'react';
 import {Text, View, TouchableOpacity, StyleSheet, TextInput, Image} from 'react-native';
 import * as Permissions from 'expo-permissions';
 import {BarCodeScanner} from 'expo-barcode-scanner';
+import firebase from 'firebase';
+import db from '../Config';
 
 export default class BookTransaction extends React.Component {
     constructor(){
@@ -11,7 +13,8 @@ export default class BookTransaction extends React.Component {
             scanned: false,
             scannedBookId: '',
             buttonState: 'normal',
-            scannedStudentId: ''            
+            scannedStudentId: '',
+            transactionMessage: ''            
         }
     }
 
@@ -34,6 +37,54 @@ export default class BookTransaction extends React.Component {
         }
     };
 
+    initiateBookIssue = async ()=> {
+        db.collection("transaction").add({
+            "studentId": this.state.scannedStudentId,
+            "bookId": this.state.scannedBookId,
+            "data": firebase.firestore.TimeStamp.now().toDate(),
+            "transactionType": "issue"
+        })
+        db.collection("books").doc(this.state.scannedBookId).update({
+            "bookAvailability": false
+        })
+        db.collection("students").doc(this.state.scannedStudentId).update({
+            "numberOfBooksIssued": firebase.firestore.FieldValue.increment(1)
+        })
+        this.setState({scannedStudentId: '', scannedBookId: ''})
+    }
+
+    initiateBookReturn = async ()=> {
+        db.collection("transaction").add({
+            "studentId": this.state.scannedStudentId,
+            "bookId": this.state.scannedBookId,
+            "data": firebase.firestore.TimeStamp.now().toDate(),
+            "transactionType": "return"
+        })
+        db.collection("books").doc(this.state.scannedBookId).update({
+            "bookAvailability": true
+        })
+        db.collection("students").doc(this.state.scannedStudentId).update({
+            "numberOfBooksIssued": firebase.firestore.FieldValue.increment(-1)
+        })
+        this.setState({scannedStudentId: '', scannedBookId: ''})
+    }
+
+    handleTransaction = async ()=> {
+        var transactionMessage = null;
+        db.collection("books").doc(this.state.scannedBookId).get().then((doc)=> {
+            var book = doc.data();
+            if(book.bookAvailability) {
+                this.initiateBookIssue();
+                transactionMessage = "bookIssue";
+            }
+            else{
+                this.initiateBookReturn();
+                transactionMessage = "bookReturn";
+            }
+        })
+        this.setState({transactionMessage: transactionMessage});
+    }
+
     render(){
         const hasCameraPermission = this.state.hasCameraPermission;
         const scanned = this.state.scanned;
@@ -51,7 +102,7 @@ export default class BookTransaction extends React.Component {
                 <View style= {styles.container}>
                     <View>
                         <Image source= {require("../assets/booklogo.jpg")} style= {{width: 200, height: 200}}></Image>
-                        <Text style= {{textAlign: 'center', fontSize: 30}}>Wily</Text>
+                        <Text style= {{textAlign: 'center', fontSize: 30}}>Library Helper </Text>
                     </View>
                     <View style= {styles.inputView}>
                         <TextInput style= {styles.inputBox} placeholder= "book id" value= {this.state.scannedBookId}>
@@ -71,6 +122,11 @@ export default class BookTransaction extends React.Component {
                             <Text style= {styles.buttonText}>Scan</Text>
                         </TouchableOpacity>
                     </View>
+                    <TouchableOpacity style= {styles.submitButton} onPress= {async()=>{
+                        var transactionMessage = await this.handleTransaction();
+                    }}>
+                        <Text style= {submitButtonText}>Submit</Text>
+                    </TouchableOpacity>
                 </View>
             )
         }       
@@ -113,5 +169,17 @@ const styles = StyleSheet.create({
       width: 50,
       borderWidth: 1.5,
       borderLeftWidth: 0
-    }
+    },
+    submitButton:{
+        backgroundColor: '#FBC02D',
+        width: 100,
+        height:50
+      },
+      submitButtonText:{
+        padding: 10,
+        textAlign: 'center',
+        fontSize: 20,
+        fontWeight:"bold",
+        color: 'white'
+      }
   });
