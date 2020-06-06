@@ -1,5 +1,5 @@
 import React from 'react';
-import {Text, View, TouchableOpacity, StyleSheet, TextInput, Image} from 'react-native';
+import {Text, View, TouchableOpacity, StyleSheet, TextInput, Image, KeyboardAvoidingView, Alert, ToastAndroid} from 'react-native';
 import * as Permissions from 'expo-permissions';
 import {BarCodeScanner} from 'expo-barcode-scanner';
 import firebase from 'firebase';
@@ -41,7 +41,7 @@ export default class BookTransaction extends React.Component {
         db.collection("transaction").add({
             "studentId": this.state.scannedStudentId,
             "bookId": this.state.scannedBookId,
-            "data": firebase.firestore.TimeStamp.now().toDate(),
+            "data": firebase.firestore.Timestamp.now().toDate(),
             "transactionType": "issue"
         })
         db.collection("books").doc(this.state.scannedBookId).update({
@@ -57,7 +57,7 @@ export default class BookTransaction extends React.Component {
         db.collection("transaction").add({
             "studentId": this.state.scannedStudentId,
             "bookId": this.state.scannedBookId,
-            "data": firebase.firestore.TimeStamp.now().toDate(),
+            "data": firebase.firestore.Timestamp.now().toDate(),
             "transactionType": "return"
         })
         db.collection("books").doc(this.state.scannedBookId).update({
@@ -70,19 +70,93 @@ export default class BookTransaction extends React.Component {
     }
 
     handleTransaction = async ()=> {
+        var transactionType = await this.checkBookEligibility();
         var transactionMessage = null;
-        db.collection("books").doc(this.state.scannedBookId).get().then((doc)=> {
-            var book = doc.data();
-            if(book.bookAvailability) {
+        if(!transactionType){
+            Alert.alert("This book does not exist in our database");
+            this.setState({scannedStudentId: '', scannedBookId: ''})
+        }
+        else if(transactionType == "issue"){
+            var isStudentEligible = await this.stdEliBookIssue();
+            if(isStudentEligible){
                 this.initiateBookIssue();
                 transactionMessage = "bookIssue";
-            }
-            else{
+                ToastAndroid.show(transactionMessage, ToastAndroid.SHORT);
+                Alert.alert(transactionType);
+            }          
+        }
+        else if (transactionType == "return"){
+            var isStudentEligible = await this.stdEliBookReturn();
+            if(isStudentEligible){
                 this.initiateBookReturn();
                 transactionMessage = "bookReturn";
+                ToastAndroid.show(transactionMessage, ToastAndroid.SHORT);
+                Alert.alert(transactionType);
+            }
+        }       
+        this.setState({transactionMessage: transactionMessage});
+    }
+
+    checkBookEligibility = async()=>{
+        const bookRef = db.collection("books").where("bookId", "==", this.state.scannedBookId).get();
+        var transactionType = '';
+        console.log(bookRef.docs);
+        if(bookRef.docs.length == 0){
+            transactionType = false;
+        }
+        else{
+            bookRef.docs.map((data)=>{
+                var book = data.data();
+                if(book.bookAvailability){
+                    transactionType = 'issue';
+                }
+                else{
+                    transactionType = 'return';
+                }
+            })
+        }
+        return transactionType;  
+    }
+
+    stdEliBookIssue = async()=>{
+        const studentRef = db.collection("students").where("studentId", "==", this.state.scannedStudentId).get();
+        var isStudentEligible = '';
+        if(studentRef.docs.length == 0){
+            isStudentEligible = false;
+            this.setState({scannedStudentId: '', scannedBookId: ''});
+            Alert.alert("The student ID does not exist in the database");
+        }
+        else{
+            studentRef.docs.map((data)=>{
+                var student = data.data();
+                if(student.numberOfBooksIssued < 2){
+                    isStudentEligible = true;
+                }
+                else{
+                    isStudentEligible = false;
+                    Alert.alert("The student has already issued 2 books");
+                    this.setState({scannedStudentId: '', scannedBookId: ''});
+                }
+            })
+        }
+        return isStudentEligible;  
+    }
+
+    stdEliBookReturn = async()=>{
+        const transactionRef = db.collection("transaction").where("bookId", "==", this.state.scannedBookId).limit(1).get();
+        var isStudentEligible = '';
+        transactionRef.docs.map((doc)=>{
+            var latestTransaction = doc.data();
+            if(latestTransaction.studentId == this.state.scannedStudentId){
+                isStudentEligible = true;
+            }
+            else{
+                isStudentEligible = false;
+                Alert.alert("The book was not issued by this student");
+                this.setState({scannedStudentId: '', scannedBookId: ''});
             }
         })
-        this.setState({transactionMessage: transactionMessage});
+        return isStudentEligible;
     }
 
     render(){
@@ -99,13 +173,14 @@ export default class BookTransaction extends React.Component {
         }
         else if(buttonState == 'normal'){
             return (
-                <View style= {styles.container}>
+                <KeyboardAvoidingView style= {styles.container} behaviour= "padding" enabled>
                     <View>
                         <Image source= {require("../assets/booklogo.jpg")} style= {{width: 200, height: 200}}></Image>
                         <Text style= {{textAlign: 'center', fontSize: 30}}>Library Helper </Text>
                     </View>
                     <View style= {styles.inputView}>
-                        <TextInput style= {styles.inputBox} placeholder= "book id" value= {this.state.scannedBookId}>
+                        <TextInput style= {styles.inputBox} placeholder= "book id" value= {this.state.scannedBookId}
+                        onChangeText= {(text)=> this.setState({scannedBookId: text})}>
                         </TextInput>
                         <TouchableOpacity style= {styles.scanButton} onPress = {()=>{
                             this.getCameraPermissions("bookId")}
@@ -114,7 +189,8 @@ export default class BookTransaction extends React.Component {
                         </TouchableOpacity>
                     </View>
                     <View style= {styles.inputView}>
-                        <TextInput style= {styles.inputBox} placeholder= "student id" value= {this.state.scannedStudentId}>
+                        <TextInput style= {styles.inputBox} placeholder= "student id" value= {this.state.scannedStudentId}
+                        onChangeText= {(text)=> this.setState({scannedStudentId: text})}>
                         </TextInput>
                         <TouchableOpacity style= {styles.scanButton} onPress = {()=>{
                             this.getCameraPermissions("studentId")}
@@ -125,9 +201,9 @@ export default class BookTransaction extends React.Component {
                     <TouchableOpacity style= {styles.submitButton} onPress= {async()=>{
                         var transactionMessage = await this.handleTransaction();
                     }}>
-                        <Text style= {submitButtonText}>Submit</Text>
+                        <Text style= {styles.submitButtonText}>Submit</Text>
                     </TouchableOpacity>
-                </View>
+                </KeyboardAvoidingView>
             )
         }       
     }
