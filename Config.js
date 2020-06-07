@@ -1,17 +1,18 @@
-import * as firebase from 'firebase';
-require("@firebase/firestore");
+import * as firebase from 'firebase'
+require('@firebase/firestore')
 
 var firebaseConfig = {
-    apiKey: "AIzaSyBBjs67IBkxjHunM7yFyCk_P9GpV32XWyQ",
-    authDomain: "wily-a9a1b.firebaseapp.com",
-    databaseURL: "https://wily-a9a1b.firebaseio.com",
-    projectId: "wily-a9a1b",
-    storageBucket: "wily-a9a1b.appspot.com",
-    messagingSenderId: "822901066419",
-    appId: "1:822901066419:web:b1869658fb87cdbb4a7ec6",
-    measurementId: "G-JVTGYTDQ0H"
+    apiKey: "AIzaSyD-weFxyNnKhznOqrY836qh4EtszTwCKFI",
+    authDomain: "wily-a90b3.firebaseapp.com",
+    databaseURL: "https://wily-a90b3.firebaseio.com",
+    projectId: "wily-a90b3",
+    storageBucket: "wily-a90b3.appspot.com",
+    messagingSenderId: "833043568352",
+    appId: "1:833043568352:web:0e0a1e5ef136f9d43de285",
+    measurementId: "G-G68L0LMHRT"
   };
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
 
   export default firebase.firestore();
+
